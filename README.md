@@ -3,7 +3,7 @@
 
 Unofficial Google Photos Desktop GUI Client
 
-Photon is a fork of [gotohp](https://github.com/xob0t/gotohp) by xob0t, with many additions (browser library, in-app sign-in, watched folders, upload history and more)
+Photon is a base on [gotohp](https://github.com/xob0t/gotohp) by xob0t, with many additions (browser library, in-app sign-in, watched folders, upload history and more)
 
 - Unlimited uploads (can be disabled)
 - File and folder selection interface
