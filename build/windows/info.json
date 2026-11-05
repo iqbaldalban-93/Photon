@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "1.0.0"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "1.0.0",
+			"CompanyName": "xob0t",
+			"FileDescription": "Google Photos Unofficial Client",
+			"LegalCopyright": "© Photon contributors",
+			"ProductName": "Photon",
+			"Comments": "Unofficial Google Photos desktop client"
+		}
+	}
+}

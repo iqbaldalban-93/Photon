@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Photon
+Comment=Google Photos Unofficial Client
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/Photon %u
+Terminal=false
+Type=Application
+Icon=Photon
+Categories=Utility;
+StartupWMClass=Photon
+
+ 
