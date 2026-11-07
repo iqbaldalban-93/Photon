@@ -329,7 +329,7 @@ function renderShell(content) {
   const counts = st.counts || {};
   const inAlbum = S.route.view === "albums" && !!S.route.arg;
   const sync = st.sync || {};
-  const initial = (st.username || "?").slice(0, 1).toUpperCase();
+  const acctInitial = (st.account || st.username || "?").slice(0, 1).toUpperCase();
   const navItems = [
     ["library", ICONS.lib, "Library", (counts.all || "")],
     ["photos", ICONS.images, "Photos", (counts.photo || "")],
@@ -380,8 +380,14 @@ function renderShell(content) {
           </div>
         </div>
         <div class="userchip">
-          <span>${esc(st.account || "no account")}</span>
-          <div class="avatar">${esc(initial)}</div>
+          <div class="acctmenu-wrap" id="acctWrap">
+            <button class="acctbtn" id="acctBtn" title="Switch account" aria-haspopup="menu" aria-expanded="false">
+              <span class="acctlbl">${esc(st.account || "no account")}</span>
+              <div class="avatar">${esc(acctInitial)}</div>
+              <svg class="acctcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="acctmenu" id="acctMenu" role="menu" hidden></div>
+          </div>
           <button class="btn ghost small" id="logout" aria-label="Sign out">${ICONS.logout}<span>Sign out</span></button>
         </div>
       </div>
@@ -464,6 +470,8 @@ function renderShell(content) {
     if (!viewMenu.hidden && !e.target.closest(".viewmenu-wrap")) viewMenu.hidden = true;
   };
   document.addEventListener("click", S.viewMenuOutside);
+
+  setupAccountMenu(shell);
 
   content(shell.querySelector("#content"), shell.querySelector("#viewTitle"));
 }
@@ -2468,6 +2476,70 @@ function renderSettings(content, titleEl) {
   });
 }
 
+// Switch the active Google account (shared by the top-bar menu and Settings).
+// Returns true when the switch happened, false if the user declined.
+async function switchAccount(email) {
+  const uploading = !!(S.state && S.state.upload && S.state.upload.running);
+  if (uploading && !confirm("Web uploads are running. Switching accounts will cancel them. Switch anyway?")) return false;
+  await api("/api/account/select", { json: { email, force: uploading } });
+  await onAccountChanged({ account: email, epoch: -1 }, { force: true });
+  return true;
+}
+
+function setupAccountMenu(shell) {
+  const btn = shell.querySelector("#acctBtn");
+  const menu = shell.querySelector("#acctMenu");
+  if (!btn || !menu) return;
+  const close = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+
+  async function open() {
+    menu.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    menu.innerHTML = `<div class="acctmenu-note">Loading…</div>`;
+    let data;
+    try { data = await api("/api/account"); }
+    catch (e) { menu.innerHTML = `<div class="acctmenu-note">${esc(e.message)}</div>`; return; }
+    if (menu.hidden) return;
+    const accounts = data.accounts || [];
+    const current = (S.state && S.state.account) || data.selected;
+    menu.innerHTML = "";
+    if (!accounts.length) menu.appendChild(h(`<div class="acctmenu-note">No accounts yet</div>`));
+    for (const a of accounts) {
+      const active = a.email === current;
+      const item = h(`
+        <button class="vitem acctitem ${active ? "active" : ""}" role="menuitemradio" aria-checked="${active}" data-email="${esc(a.email)}">
+          <div class="avatar">${esc(a.email.slice(0, 1).toUpperCase())}</div>
+          <span class="acctitem-em">${esc(a.email)}${a.needsTokenBinding ? '<small>needs token binding</small>' : ""}</span>
+          ${ICONS.check.replace("viewBox", 'class="vcheck" viewBox')}
+        </button>`);
+      menu.appendChild(item);
+    }
+    menu.appendChild(h(`<div class="acctmenu-sep"></div>`));
+    menu.appendChild(h(`<button class="vitem" data-manage="1"><span class="vic">${ICONS.gear}</span><span>Manage accounts…</span></button>`));
+  }
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (menu.hidden) open(); else close();
+  });
+  menu.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (e.target.closest("[data-manage]")) { close(); nav("settings"); return; }
+    const item = e.target.closest("[data-email]");
+    if (!item) return;
+    const email = item.dataset.email;
+    if (item.classList.contains("active")) { close(); return; }
+    close();
+    try { await switchAccount(email); }
+    catch (err) { toast(err.message, "err"); }
+  });
+  shell.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { close(); btn.focus(); } });
+
+  if (S.acctMenuOutside) document.removeEventListener("click", S.acctMenuOutside);
+  S.acctMenuOutside = (e) => { if (!menu.hidden && !e.target.closest("#acctWrap")) close(); };
+  document.addEventListener("click", S.acctMenuOutside);
+}
+
 async function drawAccounts(el) {
   let data;
   try { data = await api("/api/account"); } catch (e) { el.innerHTML = `<div class="muted">${esc(e.message)}</div>`; return; }
@@ -2493,11 +2565,7 @@ async function drawAccounts(el) {
       const act = btn.dataset.a;
       try {
         if (act === "select") {
-          const uploading = !!(S.state && S.state.upload && S.state.upload.running);
-          if (uploading && !confirm("Web uploads are running. Switching accounts will cancel them. Switch anyway?")) return;
-          await api("/api/account/select", { json: { email: a.email, force: uploading } });
-          await onAccountChanged({ account: a.email, epoch: -1 }, { force: true });
-          drawAccounts(el);
+          if (await switchAccount(a.email)) drawAccounts(el);
           return;
         }
         if (act === "remove") { await api(`/api/account/credentials?email=${encodeURIComponent(a.email)}`, { method: "DELETE" }); toast("Account removed", "ok"); }

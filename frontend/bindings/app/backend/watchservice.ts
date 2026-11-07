@@ -9,9 +9,6 @@ export function AddWatchedFolder(path: string, album: string): $CancellablePromi
     return $Call.ByID(4197035242, path, album);
 }
 
-/**
- * IsPaused reports whether watched-folder uploads are paused (runtime only, not persisted).
- */
 export function IsPaused(): $CancellablePromise<boolean> {
     return $Call.ByID(1393846399);
 }
@@ -20,11 +17,6 @@ export function RemoveWatchedFolder(path: string): $CancellablePromise<void> {
     return $Call.ByID(3019830357, path);
 }
 
-/**
- * SetPaused pauses or resumes watched-folder uploads. While paused, new and pending
- * files are ignored; on resume every enabled folder is rescanned so nothing added
- * in the meantime is missed (already-uploaded files are deduplicated as usual).
- */
 export function SetPaused(paused: boolean): $CancellablePromise<void> {
     return $Call.ByID(478640169, paused);
 }
